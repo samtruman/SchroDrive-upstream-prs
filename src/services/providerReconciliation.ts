@@ -162,13 +162,11 @@ export class HttpArrClient implements ArrClient {
     let commandBody: Record<string, unknown> = { name: commandName, path: scanPath, importMode: route.importMode || 'Copy' };
     if (route.symlinkLibraryPath) {
       const entityId = await findArrEntityId(route, event);
-      if (entityId !== undefined) {
-        commandName = route.kind === 'radarr' ? 'RescanMovie' : 'RescanSeries';
-        commandBody = { name: commandName, [route.kind === 'radarr' ? 'movieId' : 'seriesId']: entityId };
+      if (entityId === undefined) {
+        throw new Error('Unable to identify ' + route.kind + ' entity for symlink-only reconciliation');
       }
-      // If the local parser cannot identify the parent entity, let ARR run
-      // its first-import parser against the visible file instead of failing
-      // before the scan is submitted.
+      commandName = route.kind === 'radarr' ? 'RescanMovie' : 'RescanSeries';
+      commandBody = { name: commandName, [route.kind === 'radarr' ? 'movieId' : 'seriesId']: entityId };
     }
     const response = await fetch(`${route.baseUrl.replace(/\/$/, '')}/api/v3/command`, {
       method: 'POST',

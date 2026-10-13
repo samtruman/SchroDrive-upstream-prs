@@ -669,3 +669,21 @@ The Media Manager becomes fully actionable only when the required inventory
 scope is ready. This preserves the correctness of Missing, Review, Delete
 Candidates, season-pack comparison, and duplicate analysis while keeping the
 mount and general SchroDrive UI available during startup.
+
+#### Symlink-only ARR integration
+
+When the configured ARR library paths point to SchroDrive's organized
+symlink library, provider reconciliation is deliberately symlink-only:
+
+1. SchroDrive exposes or creates the organized symlink.
+2. It resolves the existing Radarr movie or Sonarr series identity.
+3. It sends RescanMovie or RescanSeries.
+4. It refuses the generic Downloaded*Scan import fallback, because that
+   fallback can copy media into the rclone mount.
+
+Radarr and Sonarr must have Completed Download Handling disabled for the
+SchroDrive download client. Their normal completed-download importer cannot
+create hardlinks across the local downloads filesystem and the rclone-backed
+organized mount; it falls back to a physical copy. This is expected ARR
+behavior, not a provider error. The SchroDrive reconciliation path owns the
+symlink and then updates ARR through the targeted rescan.

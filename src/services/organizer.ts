@@ -28,6 +28,7 @@ import { getOrganizerReview, recordOrganizerReview, type ReviewDecision, type Re
 import { searchTmdb } from "./tmdbService";
 import { refreshJellyfinLibrary } from "../integrations/jellyfin";
 import { refreshPlexLibrary } from "../integrations/plex";
+import { refreshArrAfterOrganization, type ArrRefreshTarget } from "./arrLibraryRefresh";
 
 // ===========================================================================
 // Types & Constants
@@ -1105,6 +1106,7 @@ export async function organizeOnce(opts?: { dryRun?: boolean; limit?: number }) 
   let unknownCount = 0;
   const unknownSamples: string[] = [];
   const desiredBySource = new Map<string, string>();
+  const arrRefreshTargets = new Map<string, ArrRefreshTarget>();
   for (const src of files) {
     const base = path.basename(src);
     const structuredIdentity = parseMediaFilename(base, src);
@@ -1193,7 +1195,17 @@ export async function organizeOnce(opts?: { dryRun?: boolean; limit?: number }) 
     if (dryRun && !(await fsp.stat(path.dirname(safeDst)).catch(() => null))) {
       console.log(`[${new Date().toISOString()}][organize] would create directory`, { path: path.dirname(safeDst) });
     }
-    if (await makeSymlink(src, safeDst, dryRun, true)) changed = true;
+    if (await makeSymlink(src, safeDst, dryRun, true)) {
+      changed = true;
+      if (!dryRun && (parsed.type === "movie" || parsed.type === "tv")) {
+        arrRefreshTargets.set(parsed.type + ":" + safeDst, {
+          kind: parsed.type,
+          path: safeDst,
+          title: parsed.type === "movie" ? parsed.title || "" : parsed.show || "",
+          year: parsed.year,
+        });
+      }
+    }
     if (!dryRun) desiredBySource.set(await organizerSourceKey(src), safeDst);
     processed++;
   }
@@ -1216,6 +1228,7 @@ export async function organizeOnce(opts?: { dryRun?: boolean; limit?: number }) 
   }
 
   if (!dryRun && changed) {
+    await refreshArrAfterOrganization(arrRefreshTargets.values());
     if (config.refreshJellyfinOnAdd) await refreshJellyfinLibrary();
     if (config.refreshPlexOnAdd) await refreshPlexLibrary();
   }

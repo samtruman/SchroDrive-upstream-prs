@@ -72,6 +72,7 @@ const organizerReview_1 = require("./organizerReview");
 const tmdbService_1 = require("./tmdbService");
 const jellyfin_1 = require("../integrations/jellyfin");
 const plex_1 = require("../integrations/plex");
+const arrLibraryRefresh_1 = require("./arrLibraryRefresh");
 // ===========================================================================
 // Types & Constants
 // ===========================================================================
@@ -1047,6 +1048,7 @@ async function organizeOnce(opts) {
     let unknownCount = 0;
     const unknownSamples = [];
     const desiredBySource = new Map();
+    const arrRefreshTargets = new Map();
     for (const src of files) {
         const base = path.basename(src);
         const structuredIdentity = (0, mediaParser_1.parseMediaFilename)(base, src);
@@ -1143,8 +1145,17 @@ async function organizeOnce(opts) {
         if (dryRun && !(await fsp.stat(path.dirname(safeDst)).catch(() => null))) {
             console.log(`[${new Date().toISOString()}][organize] would create directory`, { path: path.dirname(safeDst) });
         }
-        if (await makeSymlink(src, safeDst, dryRun, true))
+        if (await makeSymlink(src, safeDst, dryRun, true)) {
             changed = true;
+            if (!dryRun && (parsed.type === "movie" || parsed.type === "tv")) {
+                arrRefreshTargets.set(parsed.type + ":" + safeDst, {
+                    kind: parsed.type,
+                    path: safeDst,
+                    title: parsed.type === "movie" ? parsed.title || "" : parsed.show || "",
+                    year: parsed.year,
+                });
+            }
+        }
         if (!dryRun)
             desiredBySource.set(await organizerSourceKey(src), safeDst);
         processed++;
@@ -1166,6 +1177,7 @@ async function organizeOnce(opts) {
         }
     }
     if (!dryRun && changed) {
+        await (0, arrLibraryRefresh_1.refreshArrAfterOrganization)(arrRefreshTargets.values());
         if (config_1.config.refreshJellyfinOnAdd)
             await (0, jellyfin_1.refreshJellyfinLibrary)();
         if (config_1.config.refreshPlexOnAdd)

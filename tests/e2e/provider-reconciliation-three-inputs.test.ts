@@ -109,9 +109,8 @@ describe('provider reconciliation fixture E2E', () => {
     const root = await mkdtemp(path.join(tmpdir(), 'provider-reconciliation-arr-parser-'));
     try {
       const routeWithLibrary = { ...route('sonarr', '/mnt/schrodrive/alldebrid'), symlinkLibraryPath: root };
-      await new HttpArrClient().submitScan(routeWithLibrary, event('Shows', 'shows/Unknown.Release.S01E03.mkv'));
-      expect(body).toMatchObject({ name: 'DownloadedEpisodesScan', importMode: 'Copy' });
-      expect(body.path).toContain('Unknown Release');
+      await expect(new HttpArrClient().submitScan(routeWithLibrary, event('Shows', 'shows/Unknown.Release.S01E03.mkv'))).rejects.toThrow('symlink-only reconciliation');
+      expect(body).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

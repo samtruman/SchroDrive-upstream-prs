@@ -17,3 +17,4 @@ data/*.db-journal
 *.db-journal
 # Also ignore any local schrodrive/tokens DBs at repo root (tests use tmpDir)
 *.db
+.deploy-backups/
